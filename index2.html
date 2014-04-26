@@ -56,14 +56,6 @@ function Clear()
 }
 
 Clear();
-/*
-Object.prototype.swap = function(a, b)
-{
-	var c = this[a];
-	this[a] = this[b];
-	this[b] = c;
-}
-*/
 
 function vSub(a, b)
 {
@@ -90,57 +82,84 @@ function vCosTheta(a, b)
 	return vMul(a, b) / (vLen(a) * vLen(b));
 }
 
+function clone(obj)
+{
+	if(typeof(obj) != 'object')
+		return obj;
+	if(obj instanceof Array)
+		var r = [];
+	else
+		var r = {};
+	for(var x in obj)
+		r[x] = clone(obj[x]);
+	return r;
+}
+
 var dt = 0.01;
 const eta = 0.1;
 
-var enginestats = {l: {x: -0.2, y: 0.0, a: 1.0}, r: {x: 0.2, y: 0.0, a: -1.0}, m: {x: 0.0, y: 1.0, a: 0.0}};
-var basestate = {x: 0.0, y: -40.0, a: 0.0};
-var basevel = {x: 1.0, y: 0.0, a: 0.5};
-var state = {x: 0.0, y: 0.0, a: 0.0};
-var vel = {x: 0.0, y: 0.0, a: 0.0};
-var engines = {l: 0, r: 0, m: 1};
-var target = {x: 20.0, y: 30.0};
+var engines = {
+	l: {x: -0.2, y:  0.0, a: +1.0, active: false},
+	r: {x: +0.2, y:  0.0, a: -1.0, active: false},
+	m: {x:  0.0, y: +1.0, a:  0.0, active: true}};
+
+var basestate = {
+	pos: {x: 0.0, y: -40.0, a: 0.0},
+	vel: {x: 1.0, y: 0.0, a: 0.5},
+};
+
+var state = {
+	pos: {x: 0.0, y: -40.0, a: 0.0},
+	vel: {x: 1.0, y: 0.0, a: 0.5},
+};
+
+var target = {
+	pos: {x: 20.0, y: 30.0, a: 0.0},
+	vel: {x: 0.0, y: 0.0, a: 0.0},
+};
 
 function Step(acc) // acceleration is relative!
 {
-	var g = vMulS(-50 / Math.pow(vLen(state), 3), state);
-	var d = {x: Math.sin(state.a), y: Math.cos(state.a)};
-	vel.x += (d.y * acc.x + d.x * acc.y + g.x) * dt;
-	vel.y += (d.y * acc.y - d.x * acc.x + g.y) * dt;
-	vel.a += acc.a * dt;
-	state.x += vel.x * dt;
-	state.y += vel.y * dt;
-	state.a += vel.a * dt;
+	var g = vMulS(-50 / Math.pow(vLen(state.pos), 3), state.pos);
+	var d = {x: Math.sin(state.pos.a), y: Math.cos(state.pos.a)};
+	state.vel.x += (d.y * acc.x + d.x * acc.y + g.x) * dt;
+	state.vel.y += (d.y * acc.y - d.x * acc.x + g.y) * dt;
+	state.vel.a += acc.a * dt;
+	state.pos.x += state.vel.x * dt;
+	state.pos.y += state.vel.y * dt;
+	state.pos.a += state.vel.a * dt;
 	return d;
 }
 
 function CalcAcceleration()
 {
 	var acc = {x: 0.0, y: 0.0, a: 0.0};
-	for(var x in enginestats)
-		if(enginestats.hasOwnProperty(x) && engines[x])
+	for(var x in engines)
+	{
+		var engine = engines[x];
+		if(engine.active)
 		{
-			var stat = enginestats[x];
-			acc.x += stat.x;
-			acc.y += stat.y;
-			acc.a += stat.a;
+			acc.x += engine.x;
+			acc.y += engine.y;
+			acc.a += engine.a;
 		}
+	}
 	return acc;
 }
 
 function WayEx(callback)
 {
 	context.beginPath();
-	context.moveTo(state.x, state.y);
+	context.moveTo(state.pos.x, state.pos.y);
 	var acc = CalcAcceleration();
 	for(var i = 0;; ++i)
 	{
 		var d = Step(acc);
 //		Cross(state.x, state.y, state.a, 0.3, 1.0);
-		context.lineTo(state.x, state.y);
+		context.lineTo(state.pos.x, state.pos.y);
 		if(callback(i, d) === false)
 			break;
-		if(vLen(vSub(target, state)) < eta)
+		if(vLen(vSub(target.pos, state.pos)) < eta)
 		{
 			context.stroke();
 			throw true;
@@ -164,13 +183,13 @@ function Way(time)
 function WayDist()
 {
 	const iter = 100 / dt;
-	var dist = vLen(vSub(target, state));
+	var dist = vLen(vSub(target.pos, state.pos));
 	var mindist = 0;
 	WayEx(function(i, d)
 	{
 		if(i >= iter)
 			return false;
-		var dist2 = vLen(vSub(target, state));
+		var dist2 = vLen(vSub(target.pos, state.pos));
 		if(dist2 > dist)
 		{
 			mindist = dist;
@@ -184,14 +203,14 @@ function WayDist()
 function Fly(time)
 {
 	dt = 0.01;
-	var a = (time < 0) ? 0 : 1;
-	var b = 1 - a;
+	var a = (time > 0);
+	var b = !a;
 	time = Math.abs(time);
 	const iters = Math.abs(time / dt);
 //	alert(iters);
-	state = {x: basestate.x, y: basestate.y, a: basestate.a};
-	vel = {x: basevel.x, y: basevel.y, a: basevel.a};
-	engines = {l: a, r: b, m: 1};
+	state = clone(basestate);
+	engines.l.active = a;
+	engines.r.active = !a;
 	var i = 0;
 	var acc = CalcAcceleration();
 	
@@ -202,7 +221,8 @@ function Fly(time)
 		{
 			i = 0;
 			F = F2;
-			engines = {l: b, r: a, m: 1};
+			engines.l.active = !a;
+			engines.r.active = a;
 			acc = CalcAcceleration();
 		}
 		return true;
@@ -215,7 +235,8 @@ function Fly(time)
 		{
 			i = 0;
 			F = F3;
-			engines = {l: 0, r: 0, m: 1};
+			engines.l.active = false;
+			engines.r.active = false;
 			acc = CalcAcceleration();
 		}
 		return true;
@@ -224,7 +245,7 @@ function Fly(time)
 	function F3()
 	{
 		Step(acc);
-		if(vLen(vSub(target, state)) < 1)
+		if(vLen(vSub(target.pos, state.pos)) < 1)
 			return false;
 		return true;
 	}
@@ -233,7 +254,7 @@ function Fly(time)
 	
 	function Loop()
 	{
-		Cross(state.x, state.y, state.a, 0.3, 1.0);
+		Cross(state.pos.x, state.pos.y, state.pos.a, 0.3, 1.0);
 		if(F())
 			setTimeout(Loop, 0);
 	}
@@ -245,24 +266,25 @@ function Test(time)
 {
 	try
 	{
-		state = {x: basestate.x, y: basestate.y, a: basestate.a};
-		vel = {x: basevel.x, y: basevel.y, a: basevel.a};
-		var d = {x: state.y - target.y, y: -(state.x - target.x)};
+		state = clone(basestate);
+		var d = {x: state.pos.y - target.pos.y, y: -(state.pos.x - target.pos.x)};
 		
-		var a = (time < 0) ? 0 : 1;
-		var b = 1 - a;
+		var a = (time > 0);
 		time = Math.abs(time);
 		
-		engines = {l: a, r: b, m: 1};
+		engines.l.active = a;
+		engines.r.active = !a;
 		Way(time);
 
-		engines = {l: b, r: a, m: 1};
+		engines.l.active = !a;
+		engines.r.active = a;
 		Way(time);
 
-		engines = {l: 0, r: 0, m: 1};
+		engines.l.active = false;
+		engines.r.active = false;
 		WayDist();
 
-		return vCosTheta(d, vSub(target, state)) > 0 ? +1 : -1;
+		return vCosTheta(d, vSub(target.pos, state.pos)) > 0 ? +1 : -1;
 	}
 	catch(e)
 	{
@@ -306,11 +328,11 @@ function BSRTS(bs)
 
 function Work()
 {
-	target = {x: (Math.random() - 0.5) * 50, y: Math.random() * 50};
+	target.pos = {x: (Math.random() - 0.5) * 50, y: Math.random() * 50, a: 0};
 	dt = 0.01;
 	context.strokeStyle = "#F00";
-	Cross(basestate.x, basestate.y);
-	Cross(target.x, target.y);
+	Cross(basestate.pos.x, basestate.pos.y);
+	Cross(target.pos.x, target.pos.y);
 	context.lineWidth = 0.1;
 	context.strokeStyle = "#CCC";
 	var bs = Bisearch(-2.0, 2.0);
@@ -338,166 +360,6 @@ function Work()
 }
 
 Work();
-
-/*context.fillStyle = "rgba(255, 255, 255, 0.5)";
-
-const ne = 1;
-var rv, ra;
-
-const gx = 20.0;
-const gy = 12.0;
-
-const tx = Math.random() * 25 + 25;
-const ty = Math.random() * 25 + 25;
-
-const m = 1000;
-
-function ProcessOne(T, dt, v, a, e)
-{
-	context.beginPath();
-	context.strokeStyle = "#000";
-	var x = 0;
-	var y = 0;
-	var vx = v * Math.sin(a * Math.PI / 180);
-	var vy = v * Math.cos(a * Math.PI / 180);
-	context.moveTo(x, y);
-	var tdx = x - tx;
-	var tdy = y - ty;
-	var td = tdx * tdx + tdy * tdy;
-	for (var t = 0; t < T; t += dt)
-	{
-		var ok = td < e;
-		dx = x - gx;
-		dy = y - gy;
-		d = Math.sqrt(dx * dx + dy * dy);
-		if (d < 5.0)
-		{
-			context.strokeStyle = "#F00";
-			return false;
-		}
-		var c = -m / (d * d * d);
-		var fx = c * dx;
-		var fy = c * dy;
-		vx += fx * dt;
-		vy += fy * dt;
-		x += vx * dt;
-		y += vy * dt;
-		context.lineTo(x, y);
-
-		var otd = td;
-		tdx = x - tx;
-		tdy = y - ty;
-		td = tdx * tdx + tdy * tdy;
-		if (ok)
-		{
-			context.strokeStyle = "#0F0";
-			return otd - td;
-		}
-	}
-	return false;
-}
-
-function Process(T, dv, da, e, base)
-{
-	const based = base && base.length;
-	const dt = based ? 0.01 : 0.1;
-	const step = 2;
-	const hstep = step / 2;
-	const sstep = 1 / Math.sqrt(step);
-	const nstep = 1 / step;
-	Clear();
-
-	context.strokeStyle = "#00F";
-	Cross(gx, gy, 45);
-
-	context.strokeStyle = "#F00";
-	Cross(tx, ty, 45);
-
-	if (based)
-	{
-		var i = 0;
-		while (i < base.length)
-		{
-			var bt = 0;
-			var bv = 0;
-			var ba = 0;
-			var v0 = base[i][0];
-			var v1 = v0 - dv * hstep;
-			var v2 = v0 + dv * hstep;
-			var a0 = base[i][1];
-			var a1 = a0 - da * hstep;
-			var a2 = a0 + da * hstep;
-			for (var v = v1; v < v2; v += dv)
-			{
-				for (var a = a1; a < a2; a += da)
-				{
-					var t = ProcessOne(T, dt, v, a, e);
-					context.stroke();
-					if (t !== false)
-					{
-						if (t > bt)
-						{
-							bt = t;
-							bv = v;
-							ba = a;
-						}
-					}
-				}
-			}
-			if (bt)
-			{
-				base[i][0] = bv;
-				base[i][1] = ba;
-			}
-			else
-			{
-				base.splice(i, 1);
-				continue;
-			}
-			++i;
-		}
-	}
-	else
-	{
-		var n = Math.floor(20.0 / dv) * Math.floor(360.0 / da);
-		if (n >= 2000)
-			if (!confirm(n + " calculation required. Continue?"))
-				return false;
-		base = []
-		for (var v = 0; v < 20.0; v += dv)
-		{
-			for (var a = -180; a < 180; a += da)
-			{
-				var t = ProcessOne(T, dt, v, a, e);
-				context.stroke();
-				if (t)
-					base.push([v, a]);
-			}
-		}
-	}
-	if (e <= ne)
-	{
-		rv = bv;
-		ra = ba;
-		context.fillStyle = "rgba(255, 255, 255, 1.0)";
-		Clear();
-		context.strokeStyle = "#00F";
-		Cross(gx, gy, 45);
-		context.strokeStyle = "#F00";
-		Cross(tx, ty, 45);
-		for (var i = 0; i < base.length; ++i)
-			if (base[i])
-			{
-				ProcessOne(T, dt, base[i][0], base[i][1], ne);
-				context.stroke();
-			}
-	}
-	else
-		setTimeout(Process, 0, T, dv * nstep, da * nstep, e * sstep, base);
-}
-
- Process(20.0, 1.0, 30.0, 5.0);
-*/
 
 		</script>		
 	</body>
