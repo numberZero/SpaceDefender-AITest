@@ -95,9 +95,19 @@ function vCosTheta(a, b)
 	return vMul(a, b) / (vLen(a) * vLen(b));
 }
 
+function vSinTheta(a, b) // >0 if b is “rightier” than a
+{
+	return vCosTheta(vRight(a), b);
+}
+
 function vDir(a)
 {
 	return {x: Math.sin(a), y: Math.cos(a)};
+}
+
+function vRight(a)
+{
+	return {x: a.y, y: -a.x};
 }
 
 function clone(obj)
@@ -123,8 +133,8 @@ var engines = {
 
 var basestate = {
 	pos: {x: 0.0, y: -40.0, a: 0.0},
-//	vel: {x: 1.0, y: 0.0, a: 0.5},
-	vel: {x: 0.0, y: 0.0, a: 0.0},
+	vel: {x: 1.0, y: 0.0, a: 0.5},
+//	vel: {x: 0.0, y: 0.0, a: 0.0},
 };
 
 var state = {
@@ -147,10 +157,10 @@ function Step(acc) // acceleration is relative!
 	state.pos.x += state.vel.x * dt;
 	state.pos.y += state.vel.y * dt;
 	state.pos.a += state.vel.a * dt;
-	target.pos.x += target.vel.x * dt;
+/*	target.pos.x += target.vel.x * dt;
 	target.pos.y += target.vel.y * dt;
 	target.pos.a += target.vel.a * dt;
-	return d;
+*/	return d;
 }
 
 function CalcAcceleration()
@@ -177,7 +187,6 @@ function WayEx(callback)
 	for(var i = 0;; ++i)
 	{
 		var d = Step(acc);
-//		Cross(state.x, state.y, state.a, 0.3, 1.0);
 		context.lineTo(state.pos.x, state.pos.y);
 		if(callback(i, d) === false)
 			break;
@@ -221,7 +230,7 @@ function WayDist()
 	});
 	return mindist;
 }
-
+/*
 function Fly()
 {
 	dt = 0.01;
@@ -275,13 +284,13 @@ function Fly()
 	
 	Loop();
 }
-
+*/
 function Test(time)
 {
 	try
 	{
 		state = clone(basestate);
-		var d = {x: state.pos.y - target.pos.y, y: -(state.pos.x - target.pos.x)};
+		var d = vSub(target.pos, state.pos);
 		
 		var a = (time > 0);
 		time = Math.abs(time);
@@ -289,16 +298,16 @@ function Test(time)
 		engines.l.active = a;
 		engines.r.active = !a;
 		Way(time);
-
-		engines.l.active = !a;
-		engines.r.active = a;
-		Way(time);
+		
+		engines.l.active = state.vel.a < 0;
+		engines.r.active = state.vel.a > 0;
+		Way(Math.abs(state.vel.a / engines.l.a));
 
 		engines.l.active = false;
 		engines.r.active = false;
 		WayDist();
 
-		return vCosTheta(d, vSub(target.pos, state.pos)) > 0 ? +1 : -1;
+		return vSinTheta(d, vSub(target.pos, state.pos)) > 0 ? +1 : -1;
 	}
 	catch(e)
 	{
@@ -307,7 +316,7 @@ function Test(time)
 	}
 }
 
-function Bisearch(time1, time2)
+function Binsearch(time1, time2)
 {
 	var result1 = Test(time1);
 	var result2 = Test(time2);
@@ -318,13 +327,13 @@ function Bisearch(time1, time2)
 	for(var i = 0; i < 20; ++i)
 	{
 		if(result1 === result2)
-			return {iter: i, time: time3, err: "Singular"};
+			return {iter: i, time: time3, err: "No answer"};
 		var time3 = (time1 + time2) / 2;
 		if((time1 == time3) || (time2 == time3))
 			return {iter: i, time: time3, err: "Out of precesion"};
 		var result3 = Test(time3);
 		if(result3 === false)
-			return {iter: i, time: time3, err: "Singular"};
+			return {iter: i, time: time3, err: "Error"};
 		if(result3 === true)
 			return {iter: i, time: time3, err: null};
 		if(result3 === result1)
@@ -344,13 +353,37 @@ function Work()
 {
 	target.pos = {x: (Math.random() - 0.5) * 50, y: Math.random() * 50, a: 0};
 	dt = 0.01;
-	context.lineWidth = 0.2;
 	context.strokeStyle = "#F00";
 	Cross(basestate.pos.x, basestate.pos.y);
 	Cross(target.pos.x, target.pos.y);
 	context.lineWidth = 0.1;
-	context.strokeStyle = "#00F";
-	Fly();
+	context.strokeStyle = "#CCC";
+	var bs1 = Binsearch(-2.0, 0.0);
+	var bs2 = Binsearch(+2.0, 0.0);
+	if(bs1.err && bs2.err)
+		return;
+	var bs = bs1.err ? bs2 : bs1;
+	dt = 0.001;
+	context.strokeStyle = "#F66";
+	bs = Bisearch(bs.time - 0.05, bs.time + 0.05);
+	switch(bs.err)
+	{
+	case null:
+		dt = 0.0001;
+		context.lineWidth = 0.2;
+		context.strokeStyle = "#00F";
+		Test(bs.time);
+//		Fly(bs.time);
+		break;
+	case "Singular":
+		alert("Can’t reach the destination point");
+		break;
+	case "Out of iterations":
+		alert("Can’t calculate the way");
+		break;
+	default:
+		alert("Binsearch error: " + bs.err);
+	}
 }
 
 Work();
