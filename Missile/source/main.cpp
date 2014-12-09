@@ -20,10 +20,10 @@
 #include <GL/gl.h>
 #include <iostream>
 #include <thread>
-#include <ctime>
 #include "basicworld/world.h"
 #include "basicworld/object.h"
 #include "draw.h"
+#include "system.h"
 
 extern const float r = 0.1;
 extern const float bfr = 2.5;
@@ -165,8 +165,8 @@ void resetObjects()
 		delete target;
 	missile = new CObject(&world, SObjectDesc(1, 0.01), SObjectState(Eigen::Vector2f(0, -1.5), 0));
 	target = new CObject(&world, SObjectDesc(1, 1), SObjectState(
-		Eigen::Vector2f(random() * (2.0 / RAND_MAX) - 1.0, random() * (1.0 / RAND_MAX)), 0,
-		Eigen::Vector2f(random() * (2.0 / RAND_MAX) - 1.0, random() * (2.0 / RAND_MAX) - 1.0) * 0.3, 2 * M_PI
+		Eigen::Vector2f(rand() * (2.0 / RAND_MAX) - 1.0, rand() * (1.0 / RAND_MAX)), 0,
+		Eigen::Vector2f(rand() * (2.0 / RAND_MAX) - 1.0, rand() * (2.0 / RAND_MAX) - 1.0) * 0.3, 2 * M_PI
 		));
 	t = NAN;
 	recalc();
@@ -192,13 +192,13 @@ bool processEvents()
 void loop()
 {
 	resetObjects();
-	timespec t1, t2;
+	double t1, t2;
 	double dt;
-	clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
+	t1 = GetTime();
 	while(processEvents())
 	{
-		clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
-		dt = 0.01;//(t2.tv_sec - t1.tv_sec) + 1e-9 * (t2.tv_nsec - t1.tv_nsec);
+		t2 = GetTime();
+		dt = t2 - t1;
 		t1 = t2;
 		
 		scenePrepare();

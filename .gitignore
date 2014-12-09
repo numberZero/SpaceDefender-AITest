@@ -1,3 +1,11 @@
-Missile/build
-Missile/.kdev4
+# Ignoring:
+
+# backup files
 *~
+
+# build directories
+*/build
+*/build*
+
+# user-specific project settings
+*/.kdev4

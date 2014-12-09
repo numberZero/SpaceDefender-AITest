@@ -16,25 +16,81 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+#include <ctime>
+#include "system.h"
 #include <SDL2/SDL.h>
 #include <GL/gl.h>
-#include <iostream>
-#include <ctime>
 
 #define PROGRAM_NAME "Test1"
+
+#if _POSIX_C_SOURCE >= 199309L
+double GetTime()
+{
+	timespec t;
+	clock_gettime(CLOCK_MONOTONIC_RAW, &t);
+	return t.tv_sec + 1e-9 * t.tv_nsec;
+}
+#else
+#ifdef _WIN32
+double GetTime()
+{
+	LARGE_INTEGER t, f;
+	QueryPerformanceCounter(&t);
+	QueryPerformanceFrequency(&f);
+	return (double)t.QuadPart / f.QuadPart;
+}
+#else
+#ifdef _BSD_SOURCE
+#include <sys/time.h>
+double GetTime()
+{
+	timeval t;
+	gettimeofday(&t, NULL);
+	return t.tv_sec + 1e-6 * t.tv_usec;
+}
+#else
+#include <sys/timeb.h>
+double GetTime()
+{
+	timeb t;
+	ftime(&t);
+	return t.time + 1e-3 * t.millitm;
+}
+#endif
+#endif
+#endif
+
+#if _POSIX_C_SOURCE >= 199309L
+void Randomize()
+{
+	timespec t;
+	clock_gettime(CLOCK_MONOTONIC_RAW, &t);
+	srand(t.tv_nsec ^ t.tv_sec);
+}
+#else
+#ifdef _WIN32
+void Randomize()
+{
+	LARGE_INTEGER t;
+	QueryPerformanceCounter(&t);
+	srand(t.HighPart ^ t.LowPart);
+}
+#else
+void Randomize()
+{
+	srand(time(0));
+}
+#endif
+#endif
 
 SDL_Window *mainwindow;
 SDL_GLContext maincontext;
 // GLuint drawlist;
 
 void loop();
-
-void randomize()
-{
-	timespec t;
-	clock_gettime(CLOCK_MONOTONIC_RAW, &t);
-	srand(t.tv_nsec ^ t.tv_sec);
-}
 
 void initSDL()
 {
@@ -72,9 +128,13 @@ void initGL()
 //	drawlist = glGenLists(1);
 }
 
+#ifdef _WIN32
+int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
+#else
 int main(int argc, char *argv[])
+#endif
 {
-	randomize();
+	Randomize();
 	initSDL();
 	initGL();
 	loop();

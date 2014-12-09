@@ -5,16 +5,21 @@ set(sources
 	simulation/simulation.cpp
 	main.cpp
 	draw.cpp
-	entry.cpp
+	system.cpp
 )
+
+find_path(Eigen NAMES signature_of_eigen3_matrix_library Eigen)
+find_library(SDL SDL2)
+find_library(OpenGL NAMES GL opengl32 NAMES_PER_DIR)
 
 set(includes
 	.
+	${Eigen}
 )
 
 set(libraries
-	SDL2
-	GL
+	${SDL}
+	${OpenGL}
 )
 
 include_directories(${includes})
