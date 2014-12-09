@@ -1,6 +1,6 @@
 /*
     “Missile AI test” game
-    Copyright (C) 2014  Виталий zero@numzero.tk
+    Copyright (C) 2014  Виталий silverunicorn2011@yandex.com
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
