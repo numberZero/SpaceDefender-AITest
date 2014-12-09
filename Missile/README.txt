@@ -1,6 +1,6 @@
 “Missile AI test” game
 Version 0.1
-Copyright (C) 2014 Виталий (Vitalii, zero@numzero.tk)
+Copyright (C) 2014 Виталий (Vitalii, silverunicorn2011@yandex.com)
 
 “Missile AI test” is a non-interactive game that shows how some algorithms work.
 
