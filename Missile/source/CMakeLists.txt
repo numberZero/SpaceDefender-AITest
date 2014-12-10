@@ -26,3 +26,7 @@ include_directories(${includes})
 
 add_executable(missile ${sources})
 target_link_libraries(missile ${libraries})
+
+if(CMAKE_CXX_COMPILER MATCHES "i[3-6].*-mingw")
+	target_compile_definitions(missile PUBLIC EIGEN_DONT_VECTORIZE EIGEN_DISABLE_UNALIGNED_ARRAY_ASSERT)
+endif()
